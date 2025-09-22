@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Task Stack Visualizer</title>
+<style>
+/* Styles remain mostly the same */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Arial', sans-serif;
+}
+
+body {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.container {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  padding: 30px;
+  width: 100%;
+  max-width: 500px;
+}
+
+.title {
+  text-align: center;
+  color: #4f46e5;
+  margin-bottom: 20px;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.config-section {
+  background: #f3f4f6;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.size-input {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.input-group {
+  display: flex;
+  gap: 10px;
+}
+
+input {
+  flex: 1;
+  padding: 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 16px;
+  transition: border-color 0.3s;
+}
+
+input:focus {
+  outline: none;
+  border-color: #4f46e5;
+}
+
+button {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s, opacity 0.2s;
+  color: white;
+}
+
+button:hover {
+  transform: translateY(-2px);
+  opacity: 0.9;
+}
+
+.push-btn {
+  background: linear-gradient(to right, #4f46e5, #6366f1);
+}
+
+.pop-btn {
+  background: linear-gradient(to right, #ec4899, #f43f5e);
+}
+
+.clear-btn {
+  background: linear-gradient(to right, #ef4444, #f97316);
+}
+
+.update-btn {
+  background: linear-gradient(to right, #8b5cf6, #6366f1);
+}
+
+.task-info {
+  background: #f3f4f6;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  color: #4b5563;
+}
+
+.task-container {
+  background: #f9fafb;
+  padding: 20px;
+  border-radius: 10px;
+  min-height: 200px;
+}
+
+.task-item {
+  background: white;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  animation: slideIn 0.3s ease-out;
+}
+
+.task-item.new {
+  background: linear-gradient(to right, #4f46e5, #6366f1);
+  color: white;
+}
+
+.empty-stack {
+  text-align: center;
+  color: #9ca3af;
+  padding: 40px;
+  border: 2px dashed #d1d5db;
+  border-radius: 10px;
+}
+
+.error {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 15px;
+  border-radius: 10px;
+  margin-top: 20px;
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1 class="title">Task Stack Manager</h1>
+
+  <div class="config-section">
+    <label>Configure Task Stack Size:</label>
+    <div class="size-input">
+      <input type="number" id="sizeInput" min="1" value="5" placeholder="Enter max size">
+      <button class="update-btn" onclick="updateStackSize()">Update</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="input-group">
+      <input type="text" id="pushInput" placeholder="Enter task name">
+      <button class="push-btn" onclick="push()">Add Task</button>
+    </div>
+    <div class="input-group">
+      <button class="pop-btn" onclick="pop()">Complete Task</button>
+      <button class="clear-btn" onclick="clearStack()">Clear All Tasks</button>
+    </div>
+  </div>
+
+  <div class="task-info">
+    <span id="sizeInfo">Size: 0/5</span>
+    <span id="topElement">Top: Empty</span>
+  </div>
+
+  <div class="task-container" id="taskContainer">
+    <div class="empty-stack">No tasks yet</div>
+  </div>
+
+  <div id="errorContainer"></div>
+</div>
+
+<script>
+let stack = [];
+let maxSize = 5;
+
+function updateStackSize() {
+  const newSize = parseInt(document.getElementById('sizeInput').value);
+  if (isNaN(newSize) || newSize < 1) {
+    showError('Please enter a valid task stack size (minimum 1)');
+    return;
+  }
+  if (newSize < stack.length) {
+    showError('New size cannot be smaller than current task count');
+    return;
+  }
+  maxSize = newSize;
+  updateDisplay();
+  clearError();
+}
+
+function push() {
+  const input = document.getElementById('pushInput');
+  const value = input.value.trim();
+
+  if (!value) {
+    showError('Please enter a task to add');
+    return;
+  }
+  if (stack.length >= maxSize) {
+    showError('Task stack overflow! Maximum size reached');
+    return;
+  }
+
+  const task = {
+    name: value,
+    time: new Date().toLocaleString()
+  };
+  stack.push(task);
+  input.value = '';
+
+  updateDisplay();
+  clearError();
+}
+
+function pop() {
+  if (stack.length === 0) {
+    showError('No tasks to complete');
+    return;
+  }
+
+  stack.pop();
+  updateDisplay();
+  clearError();
+}
+
+function clearStack() {
+  stack = [];
+  updateDisplay();
+  clearError();
+}
+
+function updateDisplay() {
+  const container = document.getElementById('taskContainer');
+  const sizeInfo = document.getElementById('sizeInfo');
+  const topElement = document.getElementById('topElement');
+
+  // Update size and top task info
+  sizeInfo.textContent = `Size: ${stack.length}/${maxSize}`;
+  topElement.textContent = `Top: ${stack.length > 0 ? stack[stack.length - 1].name : 'Empty'}`;
+
+  // Update task visualization
+  if (stack.length === 0) {
+    container.innerHTML = '<div class="empty-stack">No tasks yet</div>';
+    return;
+  }
+
+  container.innerHTML = [...stack].reverse().map((task, index) => `
+    <div class="task-item ${index === 0 ? 'new' : ''}">
+      <span>${task.name}</span>
+      <span class="index">Added: ${task.time}</span>
+    </div>
+  `).join('');
+}
+
+function showError(message) {
+  const errorContainer = document.getElementById('errorContainer');
+  errorContainer.innerHTML = `<div class="error">${message}</div>`;
+}
+
+function clearError() {
+  const errorContainer = document.getElementById('errorContainer');
+  errorContainer.innerHTML = '';
+}
+
+// Handle Enter key on task input
+document.getElementById('pushInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    push();
+  }
+});
+</script>
+</body>
+</html>
